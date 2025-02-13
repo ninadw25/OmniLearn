@@ -3,3 +3,7 @@
 **/model_cache/
 **/__pycache__/
 pdf-learning-assistant
+node_modules
+omnilearn.egg-info
+package.json
+package-lock.json

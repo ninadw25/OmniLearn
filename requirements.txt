@@ -14,4 +14,8 @@ langchain_text_splitters
 langchain_community
 uvicorn
 python-multipart
-FAISS
+cassio
+datasets
+tiktoken
+langchain-astradb
+langchain_chroma
