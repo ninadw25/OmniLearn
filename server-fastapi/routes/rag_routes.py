@@ -2,7 +2,9 @@ from fastapi import APIRouter
 from langserve import add_routes
 from langchain.chains import create_retrieval_chain
 from langchain_core.prompts import ChatPromptTemplate
-from ..services.pdf_processing import process_pdf
+from services.pdf_processing import process_pdf
+from services.vector_db import get_vector_store
+from langchain_core.runnables import RunnablePassthrough
 
 router = APIRouter()
 
@@ -13,14 +15,17 @@ async def process_pdf_endpoint(file_path: str):
 
 # Q&A Chain
 prompt = ChatPromptTemplate.from_template("""
-Answer the question based only on the provided context.
-Context: {context}
-Question: {input}
-Answer in markdown format with clear section headings.
-""")
+    Answer the question based only on the provided context.
+    Context: {context}
+    Question: {input}
+    Answer in markdown format with clear section headings.
+    """
+)
 
-def get_qa_chain(vector_store):
-    retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-    return create_retrieval_chain(retriever, prompt)
+# Create a runnable instance
+vector_store = get_vector_store()
+retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+qa_chain = create_retrieval_chain(retriever, prompt)
 
-add_routes(router, get_qa_chain, path="/qa")
+# Add the routes with the runnable instance
+add_routes(router, qa_chain, path="/qa")

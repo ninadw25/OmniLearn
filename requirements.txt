@@ -1,4 +1,3 @@
-
 python-dotenv
 langchain_groq
 langchain_community
@@ -13,3 +12,6 @@ langchain_core
 langchain
 langchain_text_splitters
 langchain_community
+uvicorn
+python-multipart
+FAISS
