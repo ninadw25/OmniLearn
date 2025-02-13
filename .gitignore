@@ -3,3 +3,6 @@
 server-fastapi/services/model_cache
 server-fastapi/services/__pycache__
 pdf-learning-assistant
+server-fastapi/routes/__pycache__
+server-fastapi/config/__pycache__
+model_cache
