@@ -4,7 +4,6 @@ langchain_community
 pypdf
 langchain_text_splitters
 langsmith
-HuggingFaceEmbeddings
 langchain_huggingface
 astrapy
 fastapi

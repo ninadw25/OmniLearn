@@ -1,5 +1,4 @@
 import os
-
 class Settings:
     EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
     VECTOR_STORE_TABLE = "course_materials"
