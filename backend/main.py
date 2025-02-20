@@ -32,7 +32,7 @@ app.add_middleware(
 
 # Global storage for chat histories and vector stores
 chat_stores = {}
-vector_stores = {}
+vector_stores = {}      # Need to make this on cloud to deploy
 
 # Initialize embeddings
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
@@ -50,7 +50,7 @@ class ChatResponse(BaseModel):
 async def chat(chat_input: ChatInput):
     try:
         session_id = chat_input.session_id
-        
+       
         # Initialize LLM
         llm = ChatGroq(groq_api_key=chat_input.groq_api_key, model_name="llama-3.3-70b-versatile")
         
@@ -60,28 +60,32 @@ async def chat(chat_input: ChatInput):
         retriever = vector_stores[session_id].as_retriever()
         
         # Set up the retriever and chains
-        contextualize_q_system_prompt = (
+        contextualize_q_system_prompt = (       # make changes in this
             "Given a chat history and the latest user question "
             "which might reference context in the chat history, "
             "formulate a standalone question which can be understood "
             "without the chat history. Do NOT answer the question, "
             "just reformulate it if needed and otherwise return it as is."
         )
-        
+         
         contextualize_q_prompt = ChatPromptTemplate.from_messages([
+            # instructs the model to reframe the question by considering the chat history.
+            # From all the context present in the history pass only the relavent context to the answer prompt
             ("system", contextualize_q_system_prompt),
             MessagesPlaceholder("chat_history"),
             ("human", "{input}"),
         ])
         
+        # Pura vector store le and contextualize_q_prompt use karke usme se relavent context  
+        # nikal ke ex history aware retriever bana so as it does not get confused by the current query.
         history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
-        
+
         system_prompt = (
             "You are an assistant for question-answering tasks. "
             "Use the following pieces of retrieved context to answer "
             "the question. If you don't know the answer, say that you "
-            "don't know. Use three sentences maximum and keep the "
-            "answer concise.\n\n{context}"
+            "don't know. keep the answer concise and cover all the points."
+            "\n\n{context}"
         )
         
         qa_prompt = ChatPromptTemplate.from_messages([

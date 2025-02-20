@@ -17,7 +17,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Multer configuration for file uploads
 const upload = multer();
 
-// Proxy route for chat
+// API routes
 app.post('/api/chat', async (req, res) => {
     try {
         const response = await axios.post(`${FASTAPI_URL}/chat`, req.body);
@@ -27,7 +27,6 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-// Proxy route for file upload
 app.post('/api/upload', upload.array('files'), async (req, res) => {
     try {
         const formData = new FormData();
@@ -47,9 +46,14 @@ app.post('/api/upload', upload.array('files'), async (req, res) => {
     }
 });
 
-// Serve the frontend
+// Serve the main landing page
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Serve the document Q&A feature
+app.get('/features/document-qa', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'features', 'document-qa.html'));
 });
 
 app.listen(port, () => {
