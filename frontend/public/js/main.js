@@ -16,9 +16,31 @@ let isSending = false;
 function addMessage(content, isUser = false) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
-    messageDiv.textContent = content;
+    
+    // Parse markdown only for assistant messages
+    if (isUser) {
+        messageDiv.textContent = content;
+    } else {
+        // Set innerHTML with parsed markdown
+        messageDiv.innerHTML = marked.parse(content, {
+            breaks: true,
+            gfm: true,
+            sanitize: true
+        });
+
+        // Apply syntax highlighting to code blocks
+        messageDiv.querySelectorAll('pre code').forEach((block) => {
+            Prism.highlightElement(block);
+        });
+    }
+    
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    // Handle code blocks syntax highlighting if needed
+    if (!isUser && messageDiv.querySelectorAll('pre code').length > 0) {
+        // Optional: Add syntax highlighting using libraries like Prism.js or highlight.js
+    }
 }
 
 // Upload files

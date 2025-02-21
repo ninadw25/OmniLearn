@@ -16,6 +16,11 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from dotenv import load_dotenv
 
+LANGSMITH_TRACING=True
+LANGSMITH_ENDPOINT="https://api.smith.langchain.com"
+LANGSMITH_API_KEY=os.getenv("LANGSMITH_API_KEY")
+LANGSMITH_PROJECT=os.getenv("LANGSMITH_PROJECT")
+
 # Load environment variables
 load_dotenv()
 
@@ -85,6 +90,7 @@ async def chat(chat_input: ChatInput):
             "Use the following pieces of retrieved context to answer "
             "the question. If you don't know the answer, say that you "
             "don't know. keep the answer concise and cover all the points."
+            "After answering user's question create some sample questions of you own related to the question user asked"
             "\n\n{context}"
         )
         
