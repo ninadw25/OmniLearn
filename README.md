@@ -35,7 +35,7 @@ OmniLearn is an advanced AI teaching assistant platform that transforms the lear
 ## Technology Stack
 
 ### Frontend
-- **Framework**: Express.js
+- **Framework**: Express.js (serving as a middle-tier server or API gateway )
 - **UI**: HTML5, CSS3, JavaScript
 - **Libraries**:
   - axios (HTTP client)
