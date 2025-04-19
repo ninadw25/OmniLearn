@@ -18,6 +18,14 @@ OmniLearn is an advanced AI teaching assistant platform that transforms the lear
 - Session-based conversations
 - Intelligent question reformulation
 
+### 4. Github RAG
+- github repository link provided by the user 
+- Processes the repo and uses it as context to chatbot 
+- Precise answer to any question from the repo
+- Chat history storage is saved
+- Session management
+- API key management with secure storage
+
 ### 3. User Interface
 - Modern, responsive design
 - Dark mode interface
@@ -26,8 +34,8 @@ OmniLearn is an advanced AI teaching assistant platform that transforms the lear
 - Session management
 - API key management with secure storage
 
-### 4. Coming Soon Features
-- GitHub Repository Learning
+
+### 5. Coming Soon Features
 - Web Source Integration
 - Video Content Analysis
 - Interactive Learning Materials
