@@ -7,3 +7,5 @@ node_modules
 omnilearn.egg-info
 package.json
 package-lock.json
+logs/
+*.log

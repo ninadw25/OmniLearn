@@ -3,22 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conversational RAG Chatbot</title>
-    <link rel="stylesheet" href="../styles/document-qa.css">
-    <!-- Add marked library -->
+    <title>GitHub Repository RAG Chatbot</title>
+    <link rel="stylesheet" href="../styles/github-qa.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-javascript.min.js"></script>
-    <!-- Add other language components as needed -->
 </head>
 
 <body>
     <div class="container">
         <div class="header">
-            <h1>Conversational RAG Chatbot</h1>
-            <p>Upload PDFs and chat with their content</p>
+            <h1>GitHub Repository RAG Chatbot</h1>
+            <p>Analyze and chat about GitHub repositories</p>
         </div>
 
         <div class="setup-section">
@@ -32,23 +30,27 @@
                 <input type="text" id="sessionId" value="default_session">
             </div>
 
-            <div class="file-upload">
-                <input type="file" id="fileInput" multiple accept=".pdf">
-                <p>Drag and drop PDF files here or click to select</p>
-                <button id="uploadButton">Upload Files</button>
-                <div id="uploadStatus"></div>
+            <div class="repo-input">
+                <label for="repoUrl">GitHub Repository URL:</label>
+                <input type="text" id="repoUrl" placeholder="https://github.com/username/repository">
+                <button id="processButton">Process Repository</button>
+                <div id="processStatus"></div>
             </div>
         </div>
 
         <div class="chat-container">
             <div class="chat-messages" id="chatMessages"></div>
+            <div class="loading-indicator" id="loadingIndicator" style="display: none;">
+                <div class="spinner"></div>
+                <p>Processing...</p>
+            </div>
             <div class="chat-input">
-                <input type="text" id="messageInput" placeholder="Type your message...">
+                <input type="text" id="messageInput" placeholder="Ask about the repository...">
                 <button id="sendButton">Send</button>
             </div>
         </div>
     </div>
 
-    <script src="/js/pdf_rag.js"></script>
+    <script src="/js/github-qa.js"></script>
 </body>
 </html>

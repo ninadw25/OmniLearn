@@ -1,28 +1,23 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional, Dict
-import os
-import tempfile
-from langchain.chains import create_history_aware_retriever, create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain_chroma import Chroma
-from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from typing import List, Dict
 from langchain_groq import ChatGroq
-from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFLoader
 from dotenv import load_dotenv
+import os
+import time
 
-LANGSMITH_TRACING=True
-LANGSMITH_ENDPOINT="https://api.smith.langchain.com"
-LANGSMITH_API_KEY=os.getenv("LANGSMITH_API_KEY")
-LANGSMITH_PROJECT=os.getenv("LANGSMITH_PROJECT")
+from utils.embeddings import get_embeddings
+from utils.logger import setup_logger
+from rag.pdf_bot import PDFBot
+from rag.github_rag import GitHubRAGBot
+
+# Set up logger
+logger = setup_logger(__name__)
 
 # Load environment variables
 load_dotenv()
+logger.info("Environment variables loaded")
 
 app = FastAPI()
 
@@ -34,15 +29,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+logger.info("CORS middleware configured")
 
-# Global storage for chat histories and vector stores
-chat_stores = {}
-vector_stores = {}      # Need to make this on cloud to deploy
+# Initialize RAG bots
+try:
+    pdf_bot = PDFBot(get_embeddings())
+    github_bot = GitHubRAGBot(get_embeddings())
+    logger.info("RAG bots initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize RAG bots: {str(e)}")
+    raise
 
-# Initialize embeddings
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-class ChatInput(BaseModel):
+class ChatInput(BaseModel):     # using the pydantic basemodel to make a bucker
     session_id: str
     message: str
     groq_api_key: str
@@ -51,140 +49,140 @@ class ChatResponse(BaseModel):
     answer: str
     chat_history: List[Dict[str, str]]
 
-@app.post("/chat", response_model=ChatResponse)
-async def chat(chat_input: ChatInput):
-    try:
-        session_id = chat_input.session_id
-       
-        # Initialize LLM
-        llm = ChatGroq(groq_api_key=chat_input.groq_api_key, model_name="llama-3.3-70b-versatile")
-        
-        if session_id not in vector_stores:
-            raise HTTPException(status_code=400, detail="No documents uploaded for this session")
-        
-        retriever = vector_stores[session_id].as_retriever()
-        
-        # Set up the retriever and chains
-        contextualize_q_system_prompt = (       # make changes in this
-            "Given a chat history and the latest user question "
-            "which might reference context in the chat history, "
-            "formulate a standalone question which can be understood "
-            "without the chat history. Do NOT answer the question, "
-            "just reformulate it if needed and otherwise return it as is."
-        )
-         
-        contextualize_q_prompt = ChatPromptTemplate.from_messages([
-            # instructs the model to reframe the question by considering the chat history.
-            # From all the context present in the history pass only the relavent context to the answer prompt
-            ("system", contextualize_q_system_prompt),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-        ])
-        
-        # Pura vector store le and contextualize_q_prompt use karke usme se relavent context  
-        # nikal ke ex history aware retriever bana so as it does not get confused by the current query.
-        history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
-
-        system_prompt = (
-            "You are an assistant for question-answering tasks. "
-            "Use the following pieces of retrieved context to answer "
-            "the question. If you don't know the answer, say that you "
-            "don't know. keep the answer concise and cover all the points."
-            "After answering user's question create some sample questions of you own related to the question user asked"
-            "\n\n{context}"
-        )
-        
-        qa_prompt = ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-        ])
-        
-        question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-        rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
-        
-        # Get or create chat history
-        if session_id not in chat_stores:
-            chat_stores[session_id] = ChatMessageHistory()
-        
-        def get_session_history(session: str):
-            return chat_stores[session]
-        
-        conversational_rag_chain = RunnableWithMessageHistory(
-            rag_chain,
-            get_session_history,
-            input_messages_key="input",
-            history_messages_key="chat_history",
-            output_messages_key="answer"
-        )
-        
-        # Process the message
-        response = conversational_rag_chain.invoke(
-            {"input": chat_input.message},
-            config={"configurable": {"session_id": session_id}},
-        )
-        
-        # Format chat history for response
-        history = []
-        for msg in chat_stores[session_id].messages:
-            history.append({
-                "role": "user" if msg.type == "human" else "assistant",
-                "content": msg.content
-            })
-        
-        return ChatResponse(
-            answer=response['answer'],
-            chat_history=history
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+class GitHubInput(BaseModel):
+    url: str
+    session_id: str
 
 @app.post("/upload")
 async def upload_files(
     files: List[UploadFile] = File(...),
     session_id: str = Form(...)
 ):
+    logger.info(f"File upload request received for session: {session_id}")
     try:
         if not files:
+            logger.warning("No files provided in upload request")
             raise HTTPException(status_code=400, detail="No files provided")
 
-        documents = []
-        
+        file_contents = []
         for uploaded_file in files:
-            # Verify file is PDF
+            logger.debug(f"Processing file: {uploaded_file.filename}")
             if not uploaded_file.filename.lower().endswith('.pdf'):
+                logger.warning(f"Invalid file type attempted: {uploaded_file.filename}")
                 raise HTTPException(status_code=400, detail="Only PDF files are allowed")
-                
-            # Create temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-                content = await uploaded_file.read()
-                temp_file.write(content)
-                temp_file_path = temp_file.name
-            
-            try:
-                # Load and process the PDF
-                loader = PyPDFLoader(temp_file_path)
-                docs = loader.load()
-                documents.extend(docs)
-                
-                # Clean up temp file
-                os.unlink(temp_file_path)
-            except Exception as e:
-                # Clean up temp file
-                os.unlink(temp_file_path)
-                raise HTTPException(status_code=400, detail=f"Error processing PDF: {str(e)}")
+            content = await uploaded_file.read()
+            file_contents.append(content)
+
+        result = await pdf_bot.process_pdf(file_contents, session_id)
+        logger.info(f"Successfully processed {len(files)} files for session {session_id}")
+        return result
         
-        # Process documents
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=5000, chunk_overlap=500)
-        splits = text_splitter.split_documents(documents)
-        
-        # Create or update vector store for session
-        vector_stores[session_id] = Chroma.from_documents(documents=splits, embedding=embeddings)
-        
-        return {"message": "Files processed successfully"}
     except Exception as e:
+        logger.error(f"Error in upload_files: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat(chat_input: ChatInput):
+    logger.info(f"Chat request received for session: {chat_input.session_id}")
+    try:
+        llm = ChatGroq(
+            groq_api_key=chat_input.groq_api_key, 
+            model_name="llama-3.3-70b-versatile"
+        )
+        logger.debug("LLM initialized successfully")
+        
+        answer, history = await pdf_bot.get_response(
+            chat_input.session_id,
+            chat_input.message,
+            llm
+        )
+        logger.debug(f"Response generated for session {chat_input.session_id}")
+        
+        return ChatResponse(
+            answer=answer,
+            chat_history=history
+        )
+    except Exception as e:
+        logger.error(f"Error in chat endpoint: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/github/process")
+async def process_github(github_input: GitHubInput):
+    logger.info(f"GitHub processing request received - URL: {github_input.url}, Session: {github_input.session_id}")
+    try:
+        # Log input validation
+        logger.debug("Validating input parameters...")
+        if not github_input.url:
+            logger.warning("Empty URL provided")
+            raise HTTPException(status_code=400, detail="URL cannot be empty")
+        if not github_input.session_id:
+            logger.warning("Empty session ID provided")
+            raise HTTPException(status_code=400, detail="Session ID cannot be empty")
+
+        # Log processing attempt
+        logger.info(f"Starting repository processing - URL: {github_input.url}")
+        start_time = time.time()
+        
+        result = await github_bot.process_repository(
+            url=github_input.url,
+            session_id=github_input.session_id
+        )
+        
+        processing_time = time.time() - start_time
+        logger.info(f"Repository processed successfully in {processing_time:.2f}s")
+        return result
+
+    except ValueError as ve:
+        error_message = f"Invalid input: {str(ve)}"
+        logger.error(error_message)
+        raise HTTPException(status_code=400, detail=error_message)
+    except HTTPException as he:
+        logger.error(f"HTTP error occurred: {he.detail}")
+        raise
+    except Exception as e:
+        error_message = f"Repository processing failed: {str(e)}"
+        logger.error(error_message)
+        logger.error("Full error details:", exc_info=True)
+        raise HTTPException(status_code=500, detail=error_message)
+
+@app.post("/api/github/chat", response_model=ChatResponse)
+async def github_chat(chat_input: ChatInput):
+    logger.info(f"GitHub chat request received for session: {chat_input.session_id}")
+    try:
+        llm = ChatGroq(
+            groq_api_key=chat_input.groq_api_key,
+            model_name="llama-3.3-70b-versatile"
+        )
+        logger.debug("LLM initialized for GitHub chat")
+        
+        answer, history = await github_bot.get_response(
+            chat_input.session_id,
+            chat_input.message,
+            llm
+        )
+        logger.debug(f"GitHub chat response generated for session {chat_input.session_id}")
+        
+        return ChatResponse(
+            answer=answer,
+            chat_history=history
+        )
+    except Exception as e:
+        error_message = f"Error with GitHub chat: {str(e)}"
+        logger.error(error_message, exc_info=True)
+        raise HTTPException(status_code=500, detail=error_message)
+
+@app.get("/api/github/sessions")
+async def get_github_sessions():
+    logger.info("Request received for GitHub sessions")
+    try:
+        sessions = github_bot.get_available_sessions()
+        logger.debug(f"Retrieved {len(sessions)} GitHub sessions")
+        return {"sessions": sessions}
+    except Exception as e:
+        logger.error(f"Error retrieving GitHub sessions: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
+    logger.info("Starting FastAPI server")
     uvicorn.run(app, host="0.0.0.0", port=8000)

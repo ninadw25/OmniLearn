@@ -19,3 +19,4 @@ datasets
 tiktoken
 langchain-astradb
 langchain_chroma
+webdriver-manager

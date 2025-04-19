@@ -46,6 +46,24 @@ app.post('/api/upload', upload.array('files'), async (req, res) => {
     }
 });
 
+app.post('/api/github/process', async (req, res) => {
+    try {
+        const response = await axios.post(`${FASTAPI_URL}/github/process`, req.body);
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/github/chat', async (req, res) => {
+    try {
+        const response = await axios.post(`${FASTAPI_URL}/github/chat`, req.body);
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Serve the main landing page
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -54,6 +72,10 @@ app.get('/', (req, res) => {
 // Serve the document Q&A feature
 app.get('/features/document-qa', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'features', 'document-qa.html'));
+});
+
+app.get('/features/github-qa', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'features', 'github-qa.html'));
 });
 
 app.listen(port, () => {
