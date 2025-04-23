@@ -78,3 +78,11 @@ OmniLearn is an advanced AI teaching assistant platform that transforms the lear
 ```bash
 git clone https://github.com/yourusername/OmniLearn.git
 cd OmniLearn
+```
+
+## Video Demo
+
+https://github.com/user-attachments/assets/96bc4ac5-1856-4cd7-8191-3f4db621fb30
+
+
+
